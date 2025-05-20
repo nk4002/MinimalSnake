@@ -1,11 +1,11 @@
 import pygame as p, random as r, os
 p.init()
-S = p.display.set_mode((1000, 1000), p.RESIZABLE)
+flags = 0 if os.environ.get("XDG_SESSION_TYPE") == "wayland" else p.RESIZABLE
+S = p.display.set_mode((1000, 1000), flags)
 F = p.time.Clock()
 p.display.set_caption("Snake Game")
 font, HS_FILE, HS_COUNT = p.font.SysFont(None, 36), "highscores.txt", 5
-SPIELFELD_GR = 800
-FELD_GR = 20
+SPIELFELD_GR, FELD_GR = 800, 20
 
 def f(snake):
     while True:
@@ -14,9 +14,8 @@ def f(snake):
             return pos
 
 def load_scores():
-    if not os.path.exists(HS_FILE): return []
-    with open(HS_FILE) as f:
-        return sorted([(n,int(s)) for n,s in [l.strip().split(",",1) for l in f if "," in l]], key=lambda x:x[1], reverse=True)[:HS_COUNT]
+    return sorted([(n, int(s)) for n, s in (line.strip().split(",", 1) for line in open(HS_FILE))],
+                  key=lambda x: x[1], reverse=True)[:HS_COUNT] if os.path.exists(HS_FILE) else []
 
 def save_score(n,s): open(HS_FILE,"a").write(f"{n},{s}\n")
 
@@ -24,15 +23,18 @@ def enter_name():
     name, big = "", p.font.SysFont(None,48)
     while True:
         S.fill((0,0,0))
-        S.blit(big.render('Dein Name:',1,(255,255,255)),(300,250))
-        S.blit(font.render(name+"|",1,(0,255,0)),(300,300))
+        msg = big.render('Dein Name:',1,(255,255,255))
+        S.blit(msg, ((S.get_width()-msg.get_width())//2, 250))
+        t = font.render(name+"|",1,(0,255,0))
+        x = (S.get_width()-t.get_width())//2
+        S.blit(t,(x,300))
         p.display.flip()
         for e in p.event.get():
-            if e.type == p.QUIT: p.quit(); exit()
-            if e.type == p.KEYDOWN:
-                if e.key == p.K_RETURN and name.strip(): return name.strip()
-                if e.key == p.K_BACKSPACE: name = name[:-1]
-                elif len(name) < 20: name += e.unicode
+            if e.type==p.QUIT: p.quit(); exit()
+            if e.type==p.KEYDOWN:
+                if e.key==p.K_RETURN and name.strip(): return name.strip()
+                if e.key==p.K_BACKSPACE: name = name[:-1]
+                elif len(name)<20: name += e.unicode
 
 def show_scores(scores, offset):
     S.fill((0,0,0))
@@ -75,18 +77,20 @@ while True:
     score = game()
     if score is None: break
     name = enter_name()
-    save_score(name,score)
+    save_score(name, score)
     scores = load_scores()
-    offset = get_offset()
-    show_scores(scores, offset)
-    S.blit(p.font.SysFont(None,48).render('Game Over',1,(255,0,0)),(offset[0]+310,offset[1]+200+HS_COUNT*30+40))
-    S.blit(font.render(f'Score: {score} | R: Neustart | ESC: Beenden',1,(255,255,255)),(offset[0]+190,offset[1]+200+HS_COUNT*30+80))
-    p.display.flip()
     while True:
+        offset = get_offset()
+        show_scores(scores, offset)
+        S.blit(p.font.SysFont(None, 48).render('Game Over', 1, (255, 0, 0)), (offset[0]+310, offset[1]+200+HS_COUNT*30+40))
+        S.blit(font.render(f'Score: {score} | R: Neustart | ESC: Beenden', 1, (255, 255, 255)), (offset[0]+190, offset[1]+200+HS_COUNT*30+80))
+        p.display.flip()
         for e in p.event.get():
-            if e.type==p.QUIT: p.quit();exit()
-            if e.type==p.KEYDOWN:
-                if e.key==p.K_r: break
-                if e.key==p.K_ESCAPE: p.quit();exit()
-        else: continue
+            if e.type == p.QUIT: p.quit(); exit()
+            if e.type == p.KEYDOWN:
+                if e.key == p.K_r: break
+                if e.key == p.K_ESCAPE: p.quit(); exit()
+        else:
+            F.tick(60)
+            continue
         break
